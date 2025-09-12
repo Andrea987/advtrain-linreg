@@ -7,8 +7,10 @@ Original file is located at
     https://colab.research.google.com/github/Andrea987/advtrain-linreg/blob/main/notebooks/fig1.ipynb
 """
 
+#%%
 from itertools import cycle
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 from sklearn.linear_model import lasso_path
 from sklearn import datasets
@@ -39,7 +41,7 @@ class AdversarialTraining:
         print(n)
         print(S_inv, S_inv.shape)
         print(S_inv @ param, "weeeeeee", (S_inv @ param).shape)
-        param_norm = cp.pnorm(S_inv @ param, p=q, axis=-1)
+        param_norm = cp.pnorm(S_inv @ param, p=q, axis=1)
         print("ciao + shapeeeee", param_norm.shape)
         adv_radius = cp.Parameter(name='adv_radius', nonneg=True)
         print("ciao2")
@@ -133,27 +135,6 @@ def multiple_imputation(nbr_mi, X_nan):
        #print("fin res ", res)
     return res
 
-
-def imputation_elliptic(mu, sigma, x, masks):
-  # mu, mean elliptical distribution (,d)
-  # sigma, cov matrix elliptical distribution (d, d)
-  # x: dataset (n, d)
-  # masks: mask data, 0 seen, 1 missing
-  n, d = x.shape
-  print(n, d)
-  x_imp = x.copy()
-  #print("x_imp clean", x_imp)
-  for i in range(n):
-    if not (masks[i, :] == 0).all():  # if we have at least one missing component
-      #print("nbr : ", i)
-      x_c = x[i, :]
-      m_bool = (masks[i, :] == 0)  # True seen, False missing
-      sigma_aa_inv = np.linalg.inv(sigma[m_bool, :][:, m_bool])
-      sigma_ma = sigma[~m_bool, :][:, m_bool]
-      mu_cond = mu[~m_bool] + sigma_ma @ sigma_aa_inv @ (x_c[m_bool] - mu[m_bool])
-      x_imp[i, ~m_bool] = mu_cond
-  return x_imp
-
 # define observations
 
 n = 5
@@ -201,8 +182,10 @@ linfadvtrain = AdversarialTraining(X_orig, y, S_inv_orig, p=np.inf)
 estimator = lambda X, y, a:  linfadvtrain(adv_radius=a)
 alphas_adv, coefs_advtrain_linf  = get_path(X_orig, y, estimator, 1e1)
 plot_coefs_l1norm(coefs_advtrain_linf, ax)
+plt.show()
 #plot_coefs(alphas_adv, coefs_advtrain_linf, ax)
 
+'''
 ## random forest imputer
 from sklearn.ensemble import RandomForestRegressor
 rf_estimator = RandomForestRegressor(n_estimators=4, max_depth=10, bootstrap=True, max_samples=0.5, n_jobs=2, random_state=0)
@@ -251,28 +234,6 @@ estimator_mean = lambda X, y, a:  linfadvtrain_mean(adv_radius=a)
 alphas_adv, coefs_advtrain_linf_mean  = get_path(X_mean, y, estimator_mean, 1e1)
 plot_coefs_l1norm(coefs_advtrain_linf_mean, ax)
 
-# imputation elliptic
-
-mu = np.nanmean(X_nan, axis=0)
-print("means ", mu)
-delta = np.mean(masks) # parameter missingness
-print("delta ", delta)
-X_0 = np.nan_to_num(X_nan)
-print("nbr obs", X_0.shape[0])
-S_ellp =  X_0.T @ X_0 / X_0.shape[0]
-S_ellp = (1/d - 1/(d**2)) * np.diag(np.diag(S_ellp)) + 1/(d**2) * S_ellp
-print("eig cov ", np.linalg.eigvalsh(S_ellp))
-X_ellp = imputation_elliptic(mu, S_ellp, X_nan, masks)
-S_inv_ellp = np.linalg.inv(S_ellp)  # other variance
-sd_inv_ellp = np.std(X_ellp, axis=0)
-print("sd ellp", sd_inv_ellp)
-
-fig, ax = plt.subplots(num='advtrain_linf_ellp')
-linfadvtrain_ellp = AdversarialTraining(X_ellp, y, S_inv_ellp, p=np.inf)
-estimator_ellp = lambda X, y, a:  linfadvtrain_ellp(adv_radius=a)
-alphas_adv, coefs_advtrain_linf_ellp  = get_path(X_ellp, y, estimator_ellp, 1e1)
-plot_coefs_l1norm(coefs_advtrain_linf_ellp, ax)
-
 # mi bayesian ridge
 
 number_multiple_imputed_datasets = 5
@@ -293,3 +254,4 @@ plot_coefs_l1norm(coefs_advtrain_linf_mi, ax)
 
 #-) If the data are np.random.randn(), all the graphs looks similar
 #-) very caotic results if we multiply by a cov matrix
+'''
